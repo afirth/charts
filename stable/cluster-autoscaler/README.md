@@ -15,7 +15,9 @@ $ helm install stable/cluster-autoscaler --name my-release --set "autoscalingGro
 This chart bootstraps an cluster-autoscaler deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
 ## Prerequisites
-  - Kubernetes 1.3+ with Beta APIs enabled
+
+  - Kubernetes 1.8+
+> [older versions](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler#releases) may work by overriding the `image`. Cluster-autoscaler internally simulates the scheduler and bugs between mismatched versions may be subtle.
 
 ## Installing the Chart
 
