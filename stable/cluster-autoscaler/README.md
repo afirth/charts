@@ -1,18 +1,16 @@
 # cluster-autoscaler
 
-[The cluster autoscaler](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler) scales worker nodes within an AWS autoscaling group or Spotinst Elastigroup.
+[The cluster autoscaler](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler) scales worker nodes within an AWS autoscaling group (ASG) or Spotinst Elastigroup.
 
 ## TL;DR:
 
-## Helm >= 2.5
-
 ```console
-$ helm install stable/cluster-autoscaler --name my-release --set "autoscalingGroups[0].name=your-asg-name,autoscalingGroups[0].maxSize=10,autoscalingGroups[0].minSize=1"
+$ helm install stable/cluster-autoscaler --name my-release --set "autoscalingGroups[0].name=your-asg-name,autoscalingGroups[0].maxSize=10,autoscalingGroups[0].minSize=1" --set autoDiscovery.enabled=false
 ```
 
 ## Introduction
 
-This chart bootstraps an cluster-autoscaler deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+This chart bootstraps a cluster-autoscaler deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
 ## Prerequisites
 
@@ -23,19 +21,19 @@ This chart bootstraps an cluster-autoscaler deployment on a [Kubernetes](http://
 
 In order for the cluster-autoscaler to function, you must provide some minimal configuration which can't rely on defaults.
 
-Set either:
-  - `autoDiscovery.clusterName` and tag your autoscaling groups appropriately (`--cloud-provider=aws` only) **or**
-  - at least one ASG as an element in the `autoscalingGroups` array with its three values: `name`, `minSize` and `maxSize`.
+Either:
+  - set `autoDiscovery.clusterName` and tag your autoscaling groups appropriately (`--cloud-provider=aws` only) **or**
+  - set at least one ASG as an element in the `autoscalingGroups` array with its three values: `name`, `minSize` and `maxSize`.
 
 To install the chart with the release name `my-release`:
 
-## Using auto-discovery of tagged instance groups
+### Using auto-discovery of tagged instance groups
 
-By default, auto-discovery is of ASGs by tag is enabled.
+By default, auto-discovery of ASGs by tag is enabled in this chart.
 
-- tag the ASGs with _key_ `k8s.io/cluster-autoscaler/enabled` and _key_ `kubernetes.io/cluster/<YOUR CLUSTER NAME>`
-- set `autoDiscovery.clusterName=<YOUR CLUSTER NAME>`
-- verify the [IAM Permissions](#IAM Permissions)
+1) tag the ASGs with _key_ `k8s.io/cluster-autoscaler/enabled` and _key_ `kubernetes.io/cluster/<YOUR CLUSTER NAME>`
+1) verify the [IAM Permissions](#IAM)
+1) set `autoDiscovery.clusterName=<YOUR CLUSTER NAME>`
 
 ```console
 $ helm install stable/cluster-autoscaler --name my-release --set autoDiscovery.clusterName=<CLUSTER NAME>
@@ -43,41 +41,14 @@ $ helm install stable/cluster-autoscaler --name my-release --set autoDiscovery.c
 
 The [auto-discovery](#auto-discovery) section provides more details and examples
 
-## Specifying groups manually
+### Specifying groups manually
 
-- verify the [IAM Permissions](#IAM Permissions)
-- set `autoDiscovery.enabled=false`
-- Either provide a yaml file setting `autoscalingGroup`s (see values.yaml) or use `--set` e.g.:
+1) verify the [IAM Permissions](#IAM Permissions)
+1) set `autoDiscovery.enabled=false`
+1) Either provide a yaml file setting `autoscalingGroup`s (see values.yaml) or use `--set` e.g.:
 
 ```console
 $ helm install stable/cluster-autoscaler --name my-release --set "autoscalingGroups[0].name=your-asg-name,autoscalingGroups[0].maxSize=10,autoscalingGroups[0].minSize=1" --set autoDiscovery.enabled=false
-```
-
-### Verifying Installation
-
-The chart will succeed even if the container arguments are incorrect.
-`kubectl logs -l "app=aws-cluster-autoscaler" --tail=50` should show something like
-
-```
-polling_autoscaler.go:111] Poll finished
-static_autoscaler.go:97] Starting main loop
-utils.go:435] No pod using affinity / antiaffinity found in cluster, disabling affinity predicate for this loop
-static_autoscaler.go:230] Filtering out schedulables
-```
-
-If not, find a pod that the deployment created and describe it, paying close attention to the arguments under `Command`. e.g.:
-
-```
-Containers:
-  cluster-autoscaler:
-    Command:
-      ./cluster-autoscaler
-      --cloud-provider=aws
-# if specifying ASGs manually
-      --nodes=1:10:your-scaling-group-name
-# if using autodiscovery
-      --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,kubernetes.io/cluster/<ClusterName>
-      --v=4
 ```
 
 ## Uninstalling the Chart
@@ -99,8 +70,8 @@ The following tables lists the configurable parameters of the cluster-autoscaler
 Parameter | Description | Default
 --- | --- | ---
 `affinity` | node/pod affinities | None
-`autoDiscovery.clusterName` | name in ASG tag (used if `cloudProvider=aws`)| default **required to set or disable**
-`autoDiscovery.enabled` | enable auto-discovery (used if `cloudProvider=aws`)| **true**
+`autoDiscovery.clusterName` | name in ASG tag (used if `cloudProvider=aws`)| `default` **required to set or disable**
+`autoDiscovery.enabled` | enable auto-discovery (used if `cloudProvider=aws`)| `true`
 `autoscalingGroups[].name` | autoscaling group name | None. Required unless `autoDiscovery.enabled=true`
 `autoscalingGroups[].maxSize` | maximum autoscaling group size | None. Required unless `autoDiscovery.enabled=true`
 `autoscalingGroups[].minSize` | minimum autoscaling group size | None. Required unless `autoDiscovery.enabled=true`
@@ -140,7 +111,8 @@ $ helm install stable/cluster-autoscaler --name my-release \
     --set awsRegion=us-west-1
 ```
 
-## IAM Permissions
+## IAM
+
 The worker running the cluster autoscaler will need access to certain resources and actions:
 
 ```
@@ -172,7 +144,8 @@ Unfortunately AWS does not support ARNs for autoscaling groups yet so you must u
 
 For auto-discovery of instances to work, they must be tagged with
 `k8s.io/cluster-autoscaler/enabled` and `kubernetes.io/cluster/<ClusterName>`
-the value of the tag does not matter, only the key.
+
+The value of the tag does not matter, only the key.
 
 An example kops spec excerpt:
 
@@ -210,3 +183,31 @@ In this example you would need to `--set autoDiscovery.clusterName=my.cluster.in
 It is not recommended to try to mix this with setting `autoscalingGroups`
 
 See [autoscaler AWS documentation]https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/cloudprovider/aws/README.md#auto-discovery-setup for a more discussion of the setup
+
+### Troubleshooting 
+
+The chart will succeed even if the container arguments are incorrect. A few minutes after starting
+`kubectl logs -l "app=aws-cluster-autoscaler" --tail=50` should loop through something like
+
+```
+polling_autoscaler.go:111] Poll finished
+static_autoscaler.go:97] Starting main loop
+utils.go:435] No pod using affinity / antiaffinity found in cluster, disabling affinity predicate for this loop
+static_autoscaler.go:230] Filtering out schedulables
+```
+
+If not, find a pod that the deployment created and `describe` it, paying close attention to the arguments under `Command`. e.g.:
+
+```
+Containers:
+  cluster-autoscaler:
+    Command:
+      ./cluster-autoscaler
+      --cloud-provider=aws
+# if specifying ASGs manually
+      --nodes=1:10:your-scaling-group-name
+# if using autodiscovery
+      --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,kubernetes.io/cluster/<ClusterName>
+      --v=4
+```
+
