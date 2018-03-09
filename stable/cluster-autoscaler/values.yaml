@@ -1,4 +1,10 @@
+autoDiscovery:
+# Only supports cloudProvider `aws` at this time
+  clusterName: default
+  enabled: true
+
 autoscalingGroups: []
+# Required if not using autoDiscovery
   # - name: asg1
   #   maxSize: 1
   #   minSize: 1
